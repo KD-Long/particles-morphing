@@ -9,11 +9,19 @@ import { extend, useFrame } from '@react-three/fiber';
 
 import * as THREE from 'three'
 
-export default function Models({ name, getProgress, children, ...props }) {
+export default function Models({ name, getProgress, setProgress, color1, color2, ...props }) {
   const { nodes } = useGLTF('/static/models.glb')
+  const direction = useRef(1)
+  const index = useRef(0)
 
   const [particlePoints, setParticlePoints] = useState([]);
-  const [suzanne, setSuzanne] = useState();
+  const [sizePoints, setSizePoints] = useState([]);
+
+  const [myGeo, setMyGeo] = useState();
+
+
+  const [posIndex, setPosIndex] = useState(0)
+  const [targetIndex, setTargetIndex] = useState(1)
 
   const myShaderMaterialRef = useRef()
 
@@ -24,6 +32,7 @@ export default function Models({ name, getProgress, children, ...props }) {
   let textRef = useRef()
 
 
+  // initial use effect that runs before and after render that extracts postions and are normailsed to the same numer of points
   useEffect(() => {
 
     // Wait for all refs to exist
@@ -60,31 +69,79 @@ export default function Models({ name, getProgress, children, ...props }) {
         newArr[j + 2] = newArr[randomIndex + 2]
       }
 
-
-
       // updatedPositions.push(new THREE.Float32BufferAttribute(newArr, 3))
       updatedPositions.push(newArr) // Note when useing the R3F <Points> component we need to parse a Float32 not a buffer attribute
 
     }
     // at this point updatedPositions all have the same lenther position arrays ~30726
 
-    // we are jsut extracting the poistions array from the mesh and updating the state that hold the points coords
-
-    let geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(updatedPositions[1], 3))
-    geo.setAttribute('aPositionTarget', new THREE.Float32BufferAttribute(updatedPositions[2], 3))
-
-
-    setSuzanne(geo)
 
     setParticlePoints(updatedPositions)
 
 
+    // crete a random attribute for particle size... note this can be used for all models
+    let sizeArray = new Float32Array(max)
+    for (let i = 0; i < sizeArray.length; i++) {
+      sizeArray[i] = Math.random()
+    }
+    setSizePoints(sizeArray)
 
-    console.log(updatedPositions)
+    // update our pos and target index state vals with initial 2 geos
+
+    // we are jsut extracting the poistions array from the mesh and updating the state that hold the points coords
+    let geo = new THREE.BufferGeometry()
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(updatedPositions[0], 3))
+    geo.setAttribute('aPositionTarget', new THREE.Float32BufferAttribute(updatedPositions[1], 3))
+    geo.setAttribute('aSize', new THREE.Float32BufferAttribute(sizePoints, 1))
 
 
+    setMyGeo(geo)
   }, [])
+
+  // this is triggered when we make an index change in our uodate geo
+  useEffect(() => {
+    if (!particlePoints.length) return;
+
+    // Dispose old geometry
+    if (myGeo) {
+      myGeo.dispose();
+    }
+
+    // Create new geometryf
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(particlePoints[posIndex], 3));
+    geo.setAttribute('aPositionTarget', new THREE.Float32BufferAttribute(particlePoints[targetIndex], 3));
+    geo.setAttribute('aSize', new THREE.Float32BufferAttribute(sizePoints, 1))
+
+
+
+    setMyGeo(geo);
+
+  }, [posIndex, targetIndex, particlePoints]);
+
+  // updates the points when the geo is changed
+
+  const updateGeo = (idx) => {
+    if (!particlePoints.length) return;
+    if (idx % 2 == 1) {
+      setPosIndex(prev => (prev + 2) % particlePoints.length);
+    } else {
+      setTargetIndex(prev => (prev + 2) % particlePoints.length);
+    }
+
+    // 0 p=0 t=1 (d+) --> half cycle ---> switch to negative
+    // 1 p=2 t=1 (d-) --> full cycle ---> switched to positive
+    // 2 p=2 t=3 (d+) --> 1.5 cycle ---> 
+    // 3 p=0 t=3 (d-) --> complete 2 cycle
+
+    // 0 torus
+    // 1 suzanne
+    // 2 sphere
+    // 3 text
+
+  };
+
+
   useFrame((state, delta) => {
 
     const elapsedTime = state.clock.elapsedTime
@@ -92,10 +149,19 @@ export default function Models({ name, getProgress, children, ...props }) {
     // uniform update when leva controls change (this progress is getting parsed from experience)
     if (myShaderMaterialRef.current) {
       myShaderMaterialRef.current.uniforms.uProgress.value = getProgress()
+      myShaderMaterialRef.current.uniforms.uColor1.value.set(color1)
+      myShaderMaterialRef.current.uniforms.uColor2.value.set(color2)
     }
 
-    // sphereRef.current.rotation.x = - elapsedTime * 0.1
-    // particlesRef.current.rotation.y = elapsedTime * 0.5
+    // update based on progress also toggle direction and update model when progress == 1
+    let curProgress = getProgress()
+    if ((curProgress > 1 && direction.current > 0) || (curProgress < 0 && direction.current < 0)) {
+      // setDirection(direction * -1)
+      direction.current *= -1
+      index.current = (index.current + 1) % particlePoints.length
+      updateGeo(index.current)
+    }
+    setProgress(curProgress + direction.current * delta / 5)
 
 
     // state.camera.lookAt(0, 0, 0);
@@ -104,38 +170,18 @@ export default function Models({ name, getProgress, children, ...props }) {
   return (
     <group {...props} dispose={null}>
 
-
-
-
-
-      <points geometry={suzanne}>
+      {/* Note we are frustum culling instead of computing bounding sphere (it's hard with the multi attribute tobject and already optimised so no frustrum culling is not a big deal) */}
+      <points geometry={myGeo} frustumCulled={false}>
         <myShaderMaterial ref={myShaderMaterialRef} blending={THREE.AdditiveBlending} depthWrite={false} />
       </points>
 
-      {/* <Points positions={particlePoints[0]}>
-        <myShaderMaterial blending={THREE.AdditiveBlending} depthWrite={false} />
-      </Points> */}
+
+      {/* Use <Points> when we are manuallly providing positions
+      use primitive <points> when we are passing a geometry */}
 
       {/* <Points positions={particlePoints[0]}>
         <myShaderMaterial blending={THREE.AdditiveBlending} depthWrite={false} />
       </Points> */}
-
-      {/* <Points positions={particlePoints[1]}>
-        <myShaderMaterial blending={THREE.AdditiveBlending} depthWrite={false} />
-      </Points>
-
-
-      <Points positions={particlePoints[2]}>
-        <myShaderMaterial blending={THREE.AdditiveBlending} depthWrite={false} />
-      </Points>
-
-
-      <Points positions={particlePoints[3]}>
-        <myShaderMaterial blending={THREE.AdditiveBlending} depthWrite={false} />
-      </Points> */}
-
-
-
 
       <mesh
         ref={torusRef}
@@ -160,7 +206,6 @@ export default function Models({ name, getProgress, children, ...props }) {
         visible={false}
 
       />
-
 
       <mesh
         ref={textRef}

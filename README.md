@@ -1,6 +1,6 @@
  # [particles-morphing](https://particles-morphing.kyledlong.com/)
 
-This project showcases WebGL shaders implemented using React Three Fiber (R3F). 
+This project showcases animating particles with web WebGL shaders using React Three Fiber (R3F). 
 <br>
 
 ![particles-morphing](./public/particles-morphing.png)
@@ -11,8 +11,8 @@ This project showcases WebGL shaders implemented using React Three Fiber (R3F).
 | ----------------- | ------------- |
 | React Three Fiber | WebGL         |
 | JS                | Three.js      |
-| HTML              | CSS           |
-| Vite              | shaders       |
+| Drei              | shaders       |
+
 
 
 ## How to Use
@@ -41,5 +41,5 @@ npm run dev
 
 # Notes to self
 
-Use leva version 0.9.34 (latest version 0.9.35 is fked, color picker errors out null) 
+Use leva version 0.9.34 (latest version 0.9.35 is broken, color picker errors out null) 
 npm install leva@0.9.34

@@ -2,7 +2,11 @@ uniform vec2 uResolution;
 uniform float uSize;
 uniform float uProgress;
 
+uniform vec3 uColor1;
+uniform vec3 uColor2;
+
 attribute vec3 aPositionTarget;
+attribute float aSize;
 
 varying vec3 vColor;
 
@@ -38,7 +42,7 @@ void main() {
     gl_Position = projectedPosition;
 
     // Point size
-    gl_PointSize = uSize * uResolution.y;
+    gl_PointSize = uSize * uResolution.y * aSize ;
     gl_PointSize *= (1.0 / -viewPosition.z);
 
     // since we are transformin the shape of all our points we can do this calc at a vertex level rather than fragment
@@ -46,6 +50,6 @@ void main() {
 
     // Varyings
 
-    vColor = vec3(noise);
+    vColor = mix(uColor1, uColor2, noise); // for each particle pick a colour inbetween c1 and c2 and use a mix ratio of noise
 
 }
