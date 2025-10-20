@@ -33,7 +33,7 @@ const Experience = () => {
 
     const MyShaderMaterial = shaderMaterial({
         uResolution: new THREE.Vector2(100, 100),
-        uSize: 4.0,
+        uSize: 0.3,
         uColor1: new THREE.Color(color1),
         uColor2: new THREE.Color(color2),
         uProgress: progress,

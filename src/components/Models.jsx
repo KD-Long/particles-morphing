@@ -5,7 +5,7 @@ Command: npx gltfjsx@6.5.3 ./models.glb
 
 import React, { useEffect, useRef, useMemo, useState } from 'react'
 import { useGLTF, Points } from '@react-three/drei'
-import { extend, useFrame } from '@react-three/fiber';
+import { extend, useFrame, useThree } from '@react-three/fiber';
 
 import * as THREE from 'three'
 
@@ -16,7 +16,7 @@ export default function Models({ name, getProgress, setProgress, color1, color2,
 
   const [particlePoints, setParticlePoints] = useState([]);
   const [sizePoints, setSizePoints] = useState([]);
-
+  const particlesRef = useRef()
   const [myGeo, setMyGeo] = useState();
 
 
@@ -24,6 +24,8 @@ export default function Models({ name, getProgress, setProgress, color1, color2,
   const [targetIndex, setTargetIndex] = useState(1)
 
   const myShaderMaterialRef = useRef()
+
+  const { size, gl, camera, scene } = useThree();
 
 
   let torusRef = useRef()
@@ -141,6 +143,21 @@ export default function Models({ name, getProgress, setProgress, color1, color2,
 
   };
 
+    // Update resolution uniform when window size changes
+    // note this is working on the refs material not the shader material and this means it doesnt trigger a re-render of the shader material
+    // react only rerenders when the state changes not the uniforms
+    // this "size" comes from the useThree hook and is updated when the window size changes
+    useEffect(() => {
+      if (particlesRef.current && size.width && size.height) {
+        myShaderMaterialRef.current.uniforms.uResolution.value.set(
+              size.width * Math.min(window.devicePixelRatio, 2),
+              size.height * Math.min(window.devicePixelRatio, 2)
+          )
+          myShaderMaterialRef.current.uniforms.uColor1.value.set(color1)
+          myShaderMaterialRef.current.uniforms.uColor2.value.set(color2)
+      }
+  }, [size.width, size.height, color1, color2])
+
 
   useFrame((state, delta) => {
 
@@ -149,8 +166,7 @@ export default function Models({ name, getProgress, setProgress, color1, color2,
     // uniform update when leva controls change (this progress is getting parsed from experience)
     if (myShaderMaterialRef.current) {
       myShaderMaterialRef.current.uniforms.uProgress.value = getProgress()
-      myShaderMaterialRef.current.uniforms.uColor1.value.set(color1)
-      myShaderMaterialRef.current.uniforms.uColor2.value.set(color2)
+
     }
 
     // update based on progress also toggle direction and update model when progress == 1
@@ -171,7 +187,11 @@ export default function Models({ name, getProgress, setProgress, color1, color2,
     <group {...props} dispose={null}>
 
       {/* Note we are frustum culling instead of computing bounding sphere (it's hard with the multi attribute tobject and already optimised so no frustrum culling is not a big deal) */}
-      <points geometry={myGeo} frustumCulled={false}>
+      <points 
+      ref={particlesRef}
+      geometry={myGeo} 
+      frustumCulled={false}
+      >
         <myShaderMaterial ref={myShaderMaterialRef} blending={THREE.AdditiveBlending} depthWrite={false} />
       </points>
 
@@ -183,6 +203,10 @@ export default function Models({ name, getProgress, setProgress, color1, color2,
         <myShaderMaterial blending={THREE.AdditiveBlending} depthWrite={false} />
       </Points> */}
 
+
+
+
+        {/* Note these are invisible and are only used to build the points object */}
       <mesh
         ref={torusRef}
         geometry={nodes.Torus001.geometry}
